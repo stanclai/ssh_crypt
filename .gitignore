@@ -1,3 +1,5 @@
 *
 !.gitignore
-!ssh-crypt.sh
+!ssh_crypt.sh
+!LICENSE
+!README.md
