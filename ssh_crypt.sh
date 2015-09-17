@@ -1,13 +1,5 @@
 #!/bin/env sh
 
-[ $# -eq 0 ] && { cat <<EOF
-Usage:
-`basename $0`
-
-EOF
-exit 0
-}
-
 MODE=""
 INFILE=""
 OUTFILE=""
@@ -33,9 +25,50 @@ DELETE_OUTFILE=""
 
 RNDSRC="/dev/urandom"
 
-# if you want to convert your private key to PKCS#8 format,
-# use the following command:
-# openssl pkcs8 -topk8 -v2 aes256 -in <old_ssh_PEM_key> -out <new_PKCS8_key>
+
+trap OnExit EXIT
+trap OnInt  INT
+trap OnAbrt ABRT
+trap OnTerm TERM
+trap OnQuit QUIT
+trap OnKill KILL
+
+
+ShowHelp() { cat <<EOF
+Usage:
+`basename $0` [--help|-h] {--enc|-e}|{--dec|-d} --pub|-p --priv|-k
+              [--sign|-s] [--armor|-a] in_filename [out_filename]
+
+--help/-h       Show this help and exit
+--enc/-e        Encrypt input file using ssh public key
+--dec/-d        Decrypt input file using ssh private key
+--pub/-p        Public key to use to encrypt data or
+                to verify digital signature
+--priv/-k       Private key to use to decrypt data or
+                to digitally sign file
+--sign/-s       Attach digital signature (private key needed)
+--armor/-a      Save encrypted data in ASCII form
+                (by default output file is binary)
+in_filename     File to encrypt (mandatory)
+out_file        File to save encrypted data. Can be omitted.
+
+Notes.
+* This script uses 'openssl' as a backend. So only RSA public
+  keys may be used to encrypt file. Though for signing other
+  types of keys go well, such as DSA or ECDSA. But ED25519
+  SSH2 keys are not compatible with 'openssl' suite.
+* Parameters '--enc' and '--dec' are mutual exclusive. If they
+  appear together in the command line, only the first of them
+  will be taken.
+* If the name of <out_file> is omitted, in encryption mode
+  it will be taken from <in_filename> with suffix '.bin' or
+  '.asc' (depending of 'armor' option). In decryption mode
+  filename will be restored from saved data or, if the file
+  with the same name exists, suffix '.decrypted' will be added.
+
+EOF
+exit 0
+}
 
 CleanUpTempFiles() {
     if [ "$DIRTY" ]; then
@@ -61,36 +94,29 @@ OnExit() {
 }
 
 OnInt() {
-    LogMessage "SIGINT Caught" 3
+    LogMessage "SIGINT caught" 3
     LogMessage "All is under the control" 4
 }
 
 OnAbrt() {
-    LogMessage "SIGABRT Caught" 3
+    LogMessage "SIGABRT caught" 3
     CleanUpTempFiles
 }
 
 OnTerm() {
-    LogMessage "SIGTERM Caught" 3
+    LogMessage "SIGTERM caught" 3
     CleanUpTempFiles
 }
 
 OnQuit() {
-    LogMessage "SIGQUIT Caught" 3
+    LogMessage "SIGQUIT caught" 3
     CleanUpTempFiles
 }
 
 OnKill() {
-    LogMessage "SIGKILL Caught" 3
+    LogMessage "SIGKILL caught" 3
     CleanUpTempFiles
 }
-
-trap OnExit EXIT
-trap OnInt  INT
-trap OnAbrt ABRT
-trap OnTerm TERM
-trap OnQuit QUIT
-trap OnKill KILL
 
 LogMessage() {
     [ $# -eq 0 -o $# -gt 2 ] && return 0
@@ -280,89 +306,95 @@ GetPublicKey() {
     return 0
 }
 
+ParseArguments() {
+    [ $# -eq 0 ] && ShowHelp
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --enc|-e)
-            [ -z "$MODE" ] && MODE="enc"
-            ;;
-        --dec|-d)
-            [ -z "$MODE" ] && MODE="dec"
-            ;;
-        --pub|-p)
-            shift
-            if [ -z "$PUBKEY" ]; then
-                if [ -f "$1" ]; then
-                    PUBKEY="$1"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --help|-h)
+                ShowHelp
+                ;;
+            --enc|-e)
+                [ -z "$MODE" ] && MODE="enc"
+                ;;
+            --dec|-d)
+                [ -z "$MODE" ] && MODE="dec"
+                ;;
+            --pub|-p)
+                shift
+                if [ -z "$PUBKEY" ]; then
+                    if [ -f "$1" ]; then
+                        PUBKEY="$1"
+                    else
+                        LogMessage "Can't find public key file $1"
+                    fi
+                fi
+                ;;
+            --pub=*)
+                VAL=`echo "$1" | cut -c 7-`
+                if [ -z "$PUBKEY" ]; then
+                    if [ -f "$VAL" ]; then
+                        PUBKEY="$VAL"
+                    else
+                        LogMessage "Can't find public key file $VAL"
+                    fi
+                fi
+                ;;
+            --priv|-k)
+                shift
+                if [ -z "$PRIVKEY" ]; then
+                    if [ -f "$1" ]; then
+                        PRIVKEY="$1"
+                    else
+                        LogMessage "Can't find private key file $1"
+                    fi
+                fi
+                ;;
+            --priv=*)
+                VAL=`echo "$1" | cut -c 8-`
+                if [ -z "$PRIVKEY" ]; then
+                    if [ -f "$VAL" ]; then
+                        PRIVKEY="$VAL"
+                    else
+                        LogMessage "Can't find private key file $VAL"
+                    fi
+                fi
+                ;;
+            --sign|-s)
+                SIGN="1"
+                ;;
+            --armor|-a)
+                ARMOR="1"
+                ;;
+            --verbose|-v)
+                VERBOSE=$((VERBOSE+1))
+                ;;
+            *)
+                if [ "`echo $1 | cut -c 1-2`" = "--" ]; then
+                    LogMessage "Invalid option: $1"
+                elif [ -z "$INFILE" ]; then
+                    INFILE="$1"
                 else
-                    LogMessage "Can't find public key file $1"
+                    if [ -z "$OUTFILE" ]; then
+                        OUTFILE="$1"
+                    fi
                 fi
-            fi
-            ;;
-        --pub=*)
-            VAL=`echo "$1" | cut -c 7-`
-            if [ -z "$PUBKEY" ]; then
-                if [ -f "$VAL" ]; then
-                    PUBKEY="$VAL"
-                else
-                    LogMessage "Can't find public key file $VAL"
-                fi
-            fi
-            ;;
-        --priv|-k)
-            shift
-            if [ -z "$PRIVKEY" ]; then
-                if [ -f "$1" ]; then
-                    PRIVKEY="$1"
-                else
-                    LogMessage "Can't find private key file $1"
-                fi
-            fi
-            ;;
-        --priv=*)
-            VAL=`echo "$1" | cut -c 8-`
-            if [ -z "$PRIVKEY" ]; then
-                if [ -f "$VAL" ]; then
-                    PRIVKEY="$VAL"
-                else
-                    LogMessage "Can't find private key file $VAL"
-                fi
-            fi
-            ;;
-        --sign|-s)
-            SIGN="1"
-            ;;
-        --armor|-a)
-            ARMOR="1"
-            ;;
-        --verbose|-v)
-            VERBOSE=$((VERBOSE+1))
-            ;;
-        *)
-            if [ "`echo $1 | cut -c 1-2`" = "--" ]; then
-                LogMessage "Invalid option: $1"
-            elif [ -z "$INFILE" ]; then
-                INFILE="$1"
-            else
-                if [ -z "$OUTFILE" ]; then
-                    OUTFILE="$1"
-                fi
-            fi
-    esac
-    shift
-done
+        esac
+        shift
+    done
 
-[ $VERBOSE -gt 0 ] && echo "Verbosity level set to $VERBOSE"
+    [ $VERBOSE -gt 0 ] && echo "Verbosity level set to $VERBOSE"
 
-[ "$INFILE" -a -f "$INFILE" ] || {
-    LogMessage "Invalid input file $INFILE"
-    exit 1
+    [ "$INFILE" -a -f "$INFILE" ] || {
+        LogMessage "Invalid input file $INFILE"
+        exit 1
+    }
+
+    [ -z "$MODE" ] && MODE="enc"
+
 }
 
-[ -z "$MODE" ] && MODE="enc"
-
-
-if [ "$MODE" = "enc" ]; then
+Encrypt() {
     if [ "$SIGN" ]; then
         GetPrivateKey
         [ "$NEW_PRIV_KEY" ] && PRIVKEY=$NEW_PRIV_KEY
@@ -403,16 +435,19 @@ if [ "$MODE" = "enc" ]; then
         if [ "$SIGN" ]; then
             if [ "$PRIVKEY" ]; then
                 LogMessage "Signing data..."
-                SIGNATURE=`openssl sha512 -sign "$PRIVKEY" -binary "$INFILE" || echo ""`
-                if [ "$SIGNATURE" ]; then
+                # temp file, 'cos binary signature can contain NULL symbols,
+                # which are discarded when transferred into variable
+                SIGNATURE=`tempfile -d . -p sign- -s .bin`
+                DIRTY="1"
+                openssl sha512 -sign "$PRIVKEY" -out "$SIGNATURE" -binary "$INFILE"  && {
                     echo "" >>"$OUTFILE"
                     echo "-----BEGIN DIGITAL SIGNATURE-----" >>"$OUTFILE"
-                    echo "$SIGNATURE" | base64 >>"$OUTFILE"
+                    cat "$SIGNATURE" | base64 >>"$OUTFILE"
                     echo "-----END DIGITAL SIGNATURE-----" >>"$OUTFILE"
-                else
+                } || {
                     LogMessage "Warning: Can't sign the data" 1
                     LogMessage "Continue without signature" 2
-                fi
+                }
             else
                 LogMessage "Warning: Can't sign the data without proper private key." 1
             fi
@@ -439,40 +474,40 @@ if [ "$MODE" = "enc" ]; then
         if [ "$SIGN" ]; then
             if [ "$PRIVKEY" ]; then
                 LogMessage "Signing data..."
-                SIGNATURE=`openssl sha512 -sign "$PRIVKEY" -binary "$INFILE" || echo ""`
-                if [ "$SIGNATURE" ]; then
+                SIGNATURE=`tempfile -d . -p sign- -s .bin`
+                DIRTY="1"
+                openssl sha512 -sign "$PRIVKEY" -out "$SIGNATURE" -binary "$INFILE" && {
                     echo "S.....,_" >>"$OUTFILE"
-                    echo "$SIGNATURE" >>"$OUTFILE"
-                else
+                    cat "$SIGNATURE" >>"$OUTFILE"
+                    echo "" >>"$OUTFILE"
+                } || {
                     LogMessage "Warning: Can't sign the data" 1
                     LogMessage "Continue without signature" 2
-                fi
+                }
             else
                 LogMessage "Warning: Can't sign the data without proper private key." 1
             fi
         fi
     fi
-    LogMessage "Data encrypted successfully"
-elif [ "$MODE" = "dec" ]; then
+    LogMessage "Data encrypted"
+}
+
+Decrypt () {
+    [ "$ARMOR" ] && {
+        LogMessage "'--armor' parameter is ignored in decryption mode" 1
+        LogMessage "Using internal heuristics to determine file format" 3
+    }
     HEAD=`head -n 1 "$INFILE"`
     if echo "$HEAD" | grep -- '-----BEGIN' >/dev/null 2>&1; then
-        if [ -z "$ARMOR" ]; then
-        # something's wrong: command line option
-        # doesn't correspond to input file format
-            LogMessage "Actual file format is ASCII armored." 1
-            LogMessage "Using 'armor' parser" 2
-            ARMOR="1"
-        fi
+        LogMessage "Input file format is ASCII armored." 2
+        LogMessage "Using 'armor' parser" 3
+        ARMOR="1"
     elif echo "$HEAD" | grep '.....,_' >/dev/null 2>&1; then
-        if [ "$ARMOR" ]; then
-        # something's wrong: command line option
-        # doesn't correspond to input file format
-            LogMessage "Actual file format is binary." 1
-            LogMessage "Using 'binary' parser" 2
-            ARMOR=""
-        fi
+        LogMessage "Input file format is binary." 2
+        LogMessage "Using 'binary' parser" 3
+        ARMOR=""
     else
-        LogMessage "Unknown input file format"
+        LogMessage "Fatal: Unknown input file format"
         exit 5
     fi
     GetPrivateKey
@@ -586,11 +621,23 @@ elif [ "$MODE" = "dec" ]; then
             LogMessage "Warning: Data authenticity can't be verified." 1
         fi
     fi
-    LogMessage "Data decrypted successfully"
+    LogMessage "Data decrypted"
+}
+
+Main() {
+ParseArguments $@
+
+if [ "$MODE" = "enc" ]; then
+    Encrypt
+elif [ "$MODE" = "dec" ]; then
+    Decrypt
 else
     LogMessage "I don't know what to do. Sorry." 1
     LogMessage "Try to use '--enc' or '--dec' options."
     exit 10
 fi
+}
+
+Main $@
 
 exit 0
