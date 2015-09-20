@@ -36,19 +36,24 @@ trap OnKill KILL
 
 ShowHelp() { cat <<EOF
 Usage:
-`basename $0` [--help|-h] {--enc|-e}|{--dec|-d} --pub|-p --priv|-k
-              [--sign|-s] [--armor|-a] in_filename [out_filename]
+`basename $0` [--help|-h] {--enc|-e}|{--dec|-d} --pub|-p public_key \
+              --priv|-k private_key [--sign|-s] [--armor|-a] \
+              in_filename [out_filename]
 
 --help/-h       Show this help and exit
 --enc/-e        Encrypt input file using ssh public key
 --dec/-d        Decrypt input file using ssh private key
---pub/-p        Public key to use to encrypt data or
+--pub=public_key or -p public_key
+                Public key to use to encrypt data or
                 to verify digital signature
---priv/-k       Private key to use to decrypt data or
+--priv=private_key or -k private_key
+                Private key to use to decrypt data or
                 to digitally sign file
 --sign/-s       Attach digital signature (private key needed)
 --armor/-a      Save encrypted data in ASCII form
                 (by default output file is binary)
+--verbose/-v    Be verbose. To increase verbosity level
+                add more -v options to command line.
 in_filename     File to encrypt (mandatory)
 out_file        File to save encrypted data. Can be omitted.
 
