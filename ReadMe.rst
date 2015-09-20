@@ -23,7 +23,7 @@ Usage
 
     ssh_crypt [--help|-h] {--enc|-e}|{--dec|-d} --pub|-p pulic_key \
               --priv|-k private_key [--sign|-s] [--armor|-a] \
-              in_filename [out_filename]
+              [--verbose|-v] in_filename [out_filename]
 
 Options
 -------

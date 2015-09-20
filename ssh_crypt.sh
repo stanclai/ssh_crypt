@@ -38,7 +38,7 @@ ShowHelp() { cat <<EOF
 Usage:
 `basename $0` [--help|-h] {--enc|-e}|{--dec|-d} --pub|-p public_key \
               --priv|-k private_key [--sign|-s] [--armor|-a] \
-              in_filename [out_filename]
+              [--verbose|-v] in_filename [out_filename]
 
 --help/-h       Show this help and exit
 --enc/-e        Encrypt input file using ssh public key
