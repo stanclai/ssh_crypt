@@ -2,9 +2,6 @@
 SSH2 (en/de)crypt utility
 #########################
 
-SSH2 (en/de)crypt utility
-=========================
-
 :Version:   1.2
 :Date:      2015-09-20
 
