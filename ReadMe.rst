@@ -28,19 +28,19 @@ Usage
 Options
 -------
 
---help      (or -h) Show the help and exit
---enc       (or -e) Encrypt input file using ssh public key
---dec       (or -d) Decrypt input file using ssh private key
+--help      (or ``-h``) Show the help and exit
+--enc       (or ``-e``) Encrypt input file using ssh public key
+--dec       (or ``-d``) Decrypt input file using ssh private key
 --pub=public_key  (or ``-p public_key``)
             Public key to use to encrypt data or
             to verify digital signature
 --priv=private_key  (or ``-k private_key``)
             Private key to use to decrypt data or
             to digitally sign file
---sign      (or -s) Attach digital signature (private key needed)
---armor     (or -a) Save encrypted data in ASCII form
+--sign      (or ``-s``) Attach digital signature (private key needed)
+--armor     (or ``-a``) Save encrypted data in ASCII form
             (by default output file is binary)
---verbose   (or -v) Be verbose. To increase verbosity level
+--verbose   (or ``-v``) Be verbose. To increase verbosity level
             add more ``-v`` options to command line.
 
 Files to use

@@ -497,7 +497,7 @@ Encrypt() {
     LogMessage "Data encrypted"
 }
 
-Decrypt () {
+Decrypt() {
     [ "$ARMOR" ] && {
         LogMessage "'--armor' parameter is ignored in decryption mode" 1
         LogMessage "Using internal heuristics to determine file format" 3
